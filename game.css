@@ -19,13 +19,25 @@
             color: #333333;
             font-size: 40pt;
 			width: 320px;
-			font-family: 'Orbitron', 'Helvetica', sans-serif;
+			font-family: 'Helvetica', sans-serif;
         }
 
 		input {
 		width: 100%;
-		}	
-
+		}
+	#gamearea {
+	    position: absolute;
+	    left: 500px;
+	    top: 125px;
+	}
+	#instructions {
+	    position: absolute;
+	    left: 20px;
+	    top: 100px;
+	}	
+	#userimg {
+	    float: left;
+	}
         #chatinput, #chatlog {
             visibility: hidden;
             position:static;
@@ -43,15 +55,28 @@
         #chatlog {
             height: 132;
         }
+	#frame {
+		position: absolute;
+		left: 475px;
+		top: 100px;
+	}
 		#numusers {
-		font-family: 'Orbitron', 'Helvetica', sans-serif;
+		font-family: 'Helvetica', sans-serif;
+		position:absolute;
+		top: 15;
+		left: 250;
 		}
-		
+	#gamestate {
+		font-family: 'Helvetica', sans-serif;
+		position:absolute;
+		top: 50;
+		left: 25;
+	}
 		canvas {
+		float: center;
 		cursor: none;
 		margin-left: auto;
 		margin-right: auto;
-		padding-top: 75px;
 		}
 			
         .debug{
@@ -69,17 +94,15 @@
 			margin-right:auto;
 			padding-left: 20px;
 			padding-top: 10px;
-			font-size: 23px;
+			font-size: 36px;
 			
         }
-		.centerPane{
-			margin-left:5cm;
-			margin-right:auto;
-			padding-top:10px;
-			width: 50%;
-			font-size: 23px;
-			background-color: transparent;
-			text-align: center;
-			color: #333333;
-			font-family: 'Orbitron', 'Helvetica', sans-serif;
-		}
+	.centerPane{
+		width: 700px;
+		left: 500px;
+		font-size: 23px;
+		color: #333333;
+		font-family: 'Helvetica', 			sans-serif;
+		top: 25px;
+		text-align: center;
+	}
