@@ -94,7 +94,7 @@ tasks[27] = new Task("Clean the Bathtub", 230, 1135, 310, 1255);
 tasks[28] = new Task("Carve the Turkey", 25, 460, 235, 655);
 tasks[29] = new Task("Arrange the Bookshelf", 935, 1435, 1150, 1525);
 tasks[30] = new Task("Tidy Up your Desk", 1315, 275, 1460, 480);
-tasks[31] = new Task("Open the Window", 1485, 800, 1515 815);
+tasks[31] = new Task("Open the Window", 1485, 800, 1515, 815);
 
 var currentTime;
 var WORLD_W = 1540,
