@@ -52,11 +52,54 @@ var noCount = 0;
 var accused = "";
 var killerID = -1;
 var livingPlayers = 0;
+var connected = 0;
+
+function Task(text, x, y, width, height) {
+	this.text = text;
+	this.x = x;
+	this.y = y;
+	this.width = width;
+	this.height = height;
+}
+
+tasks = new Array();
+tasks[0] = new Task("Cook some Food", 210, 450, 310, 510);
+tasks[1] = new Task("Tidy the Broom Closet", 1450, 1325, 1520, 1395);
+tasks[2] = new Task("Clean the Bathroom", 225, 1085, 435, 1270);
+tasks[3] = new Task("Sweep the Lobby", 490, 1750, 1045, 1980);
+tasks[4] = new Task("Examine your Desk Papers", 1330, 280, 1475, 480);
+tasks[5] = new Task("Listen to the Radio", 1110, 1110, 1410, 1510);
+tasks[6] = new Task("Arrange the Bookshelf in the Study", 1080, 110, 1285, 160);
+tasks[7] = new Task("Straighten the Hallway Rug", 710, 1085, 820, 1670);
+tasks[8] = new Task("Set the Grandfather Clock", 910, 1120, 990, 1160);
+tasks[9] = new Task("Set the Dining Room Table", 640, 430, 875, 890);
+tasks[10] = new Task("Wash the Dishes", 390, 440, 500, 560);
+tasks[11] = new Task("Clean the Lobby Windows", 550, 1960, 1000, 2000);
+tasks[12] = new Task("Change the Radio Station", 1285, 1430, 1400, 1495);
+tasks[13] = new Task("Admire Self in the Bathroom Mirror", 365, 1210, 455, 1285);
+tasks[14] = new Task("Organize the Pantry", 35, 40, 285, 325);
+tasks[15] = new Task("Straighten the Vase in the Dining Room", 925, 325, 985, 410);
+tasks[16] = new Task("Hide in the Closet", 1450, 1325, 1520, 1395);
+tasks[17] = new Task("Jump on your Parents' Bed", 230, 1430, 385, 1575);
+tasks[18] = new Task("Eat a Snack", 80, 40, 210, 85);
+tasks[19] = tasks[10];
+tasks[20] = new Task("Sweep the Bedroom", 1045, 690, 1500, 995);
+tasks[21] = tasks[5];
+tasks[22] = tasks[18];
+tasks[23] = new Task("Wash the Window in the Study", 1435, 270, 1500, 475);
+tasks[24] = new Task("Stock the Pantry", 35, 40, 290, 320);
+tasks[25] = new Task("Dust the Paintings", 515, 1715, 650, 1770);
+tasks[26] = new Task("Straighten the Rug", 1080, 205, 1280, 425);
+tasks[27] = new Task("Clean the Bathtub", 230, 1135, 310, 1255);
+tasks[28] = new Task("Carve the Turkey", 25, 460, 235, 655);
+tasks[29] = new Task("Arrange the Bookshelf", 935, 1435, 1150, 1525);
+tasks[30] = new Task("Tidy Up your Desk", 1315, 275, 1460, 480);
+tasks[31] = new Task("Open the Window", 1485, 800, 1515 815);
 
 var currentTime;
-var WORLD_W = 800,
-    WORLD_Y = 500,
-	USER_CAP = 4,
+var WORLD_W = 1540,
+    WORLD_Y = 2000,
+	USER_CAP = 8,
 	USER_RADIUS = 20;
 
 server.listen(8080);
@@ -92,6 +135,8 @@ io.sockets.on('connection', function(socket){
 
         if(request.action == 'conn') {
             request.name = names[sids.length % names.length];
+			request.imgIndex = connected;
+			connected += 1;
 			
 			// connect the new client to everyone who connected before
             for(i in sids){
@@ -102,7 +147,9 @@ io.sockets.on('connection', function(socket){
                     name:users[s].name,
                     x: users[s].x,
                     y: users[s].y,
-					alive: true
+					imgIndex: users[s].imgIndex,
+					alive: users[s].alive,
+					theta: users[s].theta
                 }));
             }
 
@@ -111,16 +158,20 @@ io.sockets.on('connection', function(socket){
                     action:'me',
                     id: socket.id,
                     name: request.name,
-					alive: true
+					imgIndex: request.imgIndex,
+					alive: true,
+					task: tasks[request.imgIndex * 4]
             }));
 
+			// log the connection in our access.txt file
             var access = fs.createWriteStream('access.log', {flags:'a'});
             currentTime = new Date();
             access.write("[" + currentTime.toUTCString() + "] " + request.name + " (SID: " + socket.id + " IP: " + socket.ip +") connected.\n");
 
+			// update the server's player count
             sids.push(socket.id);
             users[socket.id] = {name:request.name, ip:socket.ip, x:request.x, y:request.y, voted:false, alive:true,
-								id:socket.id};
+								id:socket.id, imgIndex:request.imgIndex, theta:0};
 			
 			// IF WE REACH THE CAP, SELECT THE KILLER
 			if (sids.length === USER_CAP) {
@@ -141,6 +192,7 @@ io.sockets.on('connection', function(socket){
             {
                 users[socket.id].x = request.x;
                 users[socket.id].y = request.y;
+				users[socket.id].theta = request.theta;
             }
         }
 

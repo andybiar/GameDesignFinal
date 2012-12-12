@@ -3,18 +3,106 @@
 ////////////////////////////////////////////////////////
 var socket;
 
-var char_img0 = new Image();
-var char_img1 = new Image();
-var char_img2 = new Image();
-var char_img3 = new Image();
+var player0 = new Image();
+player0.src = 'images/players/player0.png';
+var player1 = new Image();
+player1.src = 'images/players/player1.png';
+var player2 = new Image();
+player2.src = 'images/players/player2.png';
+var player3 = new Image();
+player3.src = 'images/players/player3.png';
+var player4 = new Image();
+player4.src = 'images/players/player4.png';
+var player5 = new Image();
+player5.src = 'images/players/player5.png';
+var player6 = new Image();
+player6.src = 'images/players/player6.png';
+var player7 = new Image();
+player7.src = 'images/players/player7.png';
+
+var body0 = new Image();
+body0.src = 'images/bodies/body0.png';
+var body1 = new Image();
+body1.src = 'images/bodies/body1.png';
+var body2 = new Image();
+body2.src = 'images/bodies/body2.png';
+var body3 = new Image();
+body3.src = 'images/bodies/body3.png';
+var body4 = new Image();
+body4.src = 'images/bodies/body4.png';
+var body5 = new Image();
+body5.src = 'images/bodies/body5.png';
+var body6 = new Image();
+body6.src = 'images/bodies/body6.png';
+var body7 = new Image();
+body7.src = 'images/bodies/body7.png';
+
+var mansion = new Image();
+mansion.src = '/images/map.png';
+
+function drawPlayerImg(alive, index) {
+	if (alive) {
+		switch(index) {
+			case 0:
+				context.drawImage(player0, -25, -28);
+				break;
+			case 1:
+				context.drawImage(player1, -25, -30);
+				break;
+			case 2:
+				context.drawImage(player2, -26, -28);
+				break;
+			case 3:
+				context.drawImage(player3, -26, -28);
+				break;
+			case 4:
+				context.drawImage(player4, -24, -28);
+				break;
+			case 5:
+				context.drawImage(player5, -24, -30);
+				break;
+			case 6:
+				context.drawImage(player6, -24, -28);
+				break;
+			case 7:
+				context.drawImage(player7, -20, -30);
+				break;
+		}
+	}
+	else {
+		switch(index) {
+			case 0:
+				context.drawImage(body0, -40, -40);
+				break;
+			case 1:
+				context.drawImage(body1, -40, -40);
+				break;
+			case 2:
+				context.drawImage(body2, -40, -40);
+				break;
+			case 3:
+				context.drawImage(body3, -40, -40);
+				break;
+			case 4:
+				context.drawImage(body4, -40, -40);
+				break;
+			case 5:
+				context.drawImage(body5, -40, -40);
+				break;
+			case 6:
+				context.drawImage(body6, -40, -40);
+				break;
+			case 7:
+				context.drawImage(body7, -40, -40);
+				break;
+		}
+	}
+}
+
+////////////////////// END IMAGES CODE
 
 var collide_snd = new Audio("sound/collideWall.mp3");
 var stepCount = 0;
-
-char_img0.src = '/images/char0.png';
-char_img1.src = '/images/char1.png';
-char_img2.src = '/images/char2.png';
-char_img3.src = '/images/char3.png';
 
 var filterStrength = 20,
     frameTime = 0, 
@@ -25,8 +113,8 @@ var general = {
     HOST_URI: 'http://localhost:8080',
     CONN_OPTIONS: {'transports':['websocket']},
     FRAME_INTERVAL: 16,
-    WORLD_H: 500,
-    WORLD_W: 800,
+    WORLD_H: 2000,
+    WORLD_W: 1540,
     CHAT_DURATION: 8000,
     CHAT_WIDTH: 250,
     USER_RADIUS: 20,
@@ -43,8 +131,8 @@ var control = {
 
 var canvas = {
     obj: undefined,
-    width: 640,
-    height: 480,
+    width: 600,
+    height: 600,
     offset_x:0,
     offset_y:0
 };
@@ -61,10 +149,9 @@ var ids = new Array();
 var users = new Array();
 var context;
 var img = new Image();
+var printC = false;
 
 function onResize() {
-    canvas.width = canvas.obj.width = window.innerWidth;
-    canvas.height = canvas.obj.height = window.innerHeight;
     me.x = canvas.width/2;
     me.y = canvas.height/2;
 
@@ -117,6 +204,7 @@ function onKeyUp(evt) {
 
 function onKeyPress(evt) {
 	if (evt.which == 32 && me.killer === true) { attemptKill(); }
+	if (evt.which == 32) printC = true;
     if (control.typing) {
         if (evt.which == 13) sendchat();
     } else {
@@ -146,6 +234,11 @@ function getMousePos(canvas, evt) {
 }
 
 function updateCursor() {
+	var ydist = canvas.height-me.mousePos.y-me.y
+	var xdist = me.mousePos.x-me.x
+	var dist = Math.sqrt(Math.pow(ydist,2) + Math.pow(xdist,2));
+	me.theta = (Math.atan2(ydist, xdist));
+	
 	context.beginPath();
 	context.arc(me.mousePos.x,me.mousePos.y,2,0,2*Math.PI);
 	context.fill();
@@ -159,6 +252,22 @@ function onMyClick(e) {
 //////////////////////////////////////////////////////////
 // Movement
 //////////////////////////////////////////////////////////
+function checkTask() {
+	if (printC) {
+		console.log("(" + me.task.x + ", " + me.task.y + "), (" + me.task.x + me.task.width +
+			", " + me.task.y + me.task.height + "). and ME: (" + me.world_x + ", " + me.world_y + ")");
+		printC = false;
+	}
+	if (me.task) {
+		if (me.world_x > me.task.x && 
+			me.world_y > me.task.y &&
+			me.world_x < me.task.x + me.task.width &&
+			me.world_y < me.task.y + me.task.height) 
+		return true;
+		else return false;
+	}
+}
+
 function move()
 {
 	var leftright = false;
@@ -193,22 +302,42 @@ function move()
 		}
 		
 	// MOVE PEEPS
+	var oldx = me.world_x;
+	var oldy = me.world_y;
 	me.world_x += physics.xvel;
 	me.world_y += physics.yvel;
 		
 	// DETECT MAP COLLISIONS
-	if(newMap.testCollision(me.world_x,me.world_y)){
-		me.world_x -= physics.xvel;
-		me.world_y -= physics.yvel;
-		collide_snd.play();
+	var rects = new Array();
+	rects[0] = context.getImageData(canvas.width/2 - 30, canvas.height/2 - 30, 1, 1);
+	rects[1] = context.getImageData(canvas.width/2 + 30, canvas.height/2 - 30, 1, 1);
+	rects[2] = context.getImageData(canvas.width/2 - 30, canvas.height/2 + 30, 1, 1);
+	rects[3] = context.getImageData(canvas.width/2 + 30, canvas.height/2 + 30, 1, 1);
+	for (var k = 0; k < rects.length; k++) {
+		var data = rects[k].data;
+		for (var i = 0; i < data.length; i+= 4) {
+			var red = data[i];
+			var green = data[i+1];
+			var blue = data[i+2];
+			var speed = physics.speed;
+			if (red === 23 && green === 23 && blue === 23) {
+				if (k === 0) { me.world_x += speed; me.world_y += speed; break;}
+				if (k === 1) { me.world_x -= speed; me.world_y += speed; break;}
+				if (k === 2) { me.world_x += speed; me.world_y -= speed; break;}
+				if (k === 3) { me.world_x -= speed; me.world_y -= speed; break;}
+			}
+		}
 	}
 	
-    //SEND THAT SHITAKI TO THE SERVER
-    socket.send(JSON.stringify({
-        action:'move',
-        x:me.world_x,
-        y:me.world_y,
-    }));
+	if (checkTask()) console.log("Task completed!");
+	
+	//SEND THAT SHITAKI TO THE SERVER
+	socket.send(JSON.stringify({
+		action:'move',
+		x:me.world_x,
+		y:me.world_y,
+		theta:me.theta
+	}));
 }
 
 function othermove(data) {
@@ -257,13 +386,17 @@ function otherconn(data) {
         users[sid].world_x = data.x;
         users[sid].world_y = data.y;	
         users[sid].alive = data.alive;
+		users[sid].imgIndex = data.imgIndex;
+		users[sid].theta = data.theta;
     } else {
         ids.push(sid);
         users[sid] = {
             name: username,
             world_x: data.x,
             world_y: data.y,
-            alive: data.alive
+            alive: data.alive,
+			imgIndex: data.imgIndex,
+			theta: data.theta
         };
         updateStatus();
     }
@@ -274,16 +407,16 @@ function otherdraw()
     for (var i in ids)
     {
         var user = users[ids[i]];
-
-        context.fillStyle = user.color;
-        context.strokeStyle = user.color;
+		
+		context.fillStyle = '#333333';
 
         ux = user.x = user.world_x - canvas.offset_x;
         uy = user.y = user.world_y - canvas.offset_y;
 
 		context.save();
 		context.translate(ux, uy);
-		if (user.alive) { context.drawImage(char_img3,-10,-20); }
+		context.rotate(-user.theta);
+		drawPlayerImg(user.alive, user.imgIndex, -20, -20);
 		context.restore();
 
         context.font = "15px Orbitron"; 
@@ -299,6 +432,8 @@ function draw()
     context.lineWidth = 4;
 
     context.clearRect(0,0,canvas.width,canvas.height);
+	
+	context.drawImage(mansion, -canvas.offset_x, -canvas.offset_y);
 
     // calculate position
     centerCamera();
@@ -311,7 +446,7 @@ function draw()
         end_y = canvas.offset_y + canvas.height > img.height ? canvas.height - (canvas.offset_y + canvas.height - general.WORLD_H) : canvas.height;
 
     context.strokeStyle = "#333333";
-	context.fillStyle = "#FFFFFF";
+	context.fillStyle = "#333333";
     context.beginPath();
 
     if(canvas.offset_x < 0) {
@@ -330,19 +465,17 @@ function draw()
         context.moveTo(start_x,end_y);
         context.lineTo(end_x,end_y);
     }
-	newMap.drawMap(-canvas.offset_x,-canvas.offset_y);
     context.stroke();
         
     otherdraw();
 
     // draw user
-    context.fillStyle = me.color;
-
 	context.save();
 	context.translate(canvas.width/2, canvas.height/2);
-	if (me.alive) { context.drawImage(char_img3,-10,-20); }	
+	context.rotate(-me.theta);
+	drawPlayerImg(me.alive, me.imgIndex);
 	context.restore();
-
+	
     context.font = "20px Orbitron"; 
     context.textAlign = "center";
     context.fillText(me.name, canvas.width/2, canvas.height/2+35);
@@ -492,11 +625,13 @@ function init() {
     me.name = "";
     me.x = canvas.width/2;
     me.y = canvas.height/2;
-    me.world_x = 300;
-    me.world_y = 300;
+    me.world_x = 450;
+    me.world_y = 1550;
 	me.mousePos = {x:-20, y:-20};
 	me.alive = true;
 	me.killer = false;
+	me.theta = 0;
+	me.task = undefined;
 	
 	// so let's try to construct a cursor
 	canvas.obj.addEventListener('mousemove', function(evt) {
@@ -534,6 +669,9 @@ function init() {
                     me.name = data.name.replace("&lt;", "<").replace("&gt;",">");
                     me.id = data.id;
 					me.alive = data.alive;
+					me.imgIndex = data.imgIndex;
+					me.theta = data.theta;
+					me.task = data.task;
                 } else if (data.action == 'kill') {
 					kill(data);
 				}
