@@ -62,6 +62,16 @@
 		left: 475px;
 		top: 100px;
 	}
+	#winner {
+		float: left;
+		left: 500px;
+		top: 125px;
+	}
+	#loser {
+		left: 500px;
+		top: 125px;
+		float: left;
+	}
 		#numusers {
 		font-family: 'Helvetica', sans-serif;
 		position:absolute;
