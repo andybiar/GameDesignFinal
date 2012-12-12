@@ -2,7 +2,7 @@
             background-color: transparent;
             color:#333333;
         }
-        body { background: #EEEEEE; }
+        body { background: #FFFFFF; }
         html, body, p {
             font-family: "Helvetica";  
             margin: 0px;
@@ -40,8 +40,10 @@
 	}
         #chatinput, #chatlog {
             visibility: hidden;
-            position:static;
+            position:absolute;
             width:600;
+			top: 875;
+			left: 610;
         }
         #chatarea {
             width:600;
@@ -71,12 +73,12 @@
 		top: 25;
 		left: 1300;
 	}
-	#vote {
+	#voter {
 		font-family: 'Helvetica', sans-serif;
 		width: 300;
 		position:absolute;
-		top: 50;
-		left: 650;
+		top: 100;
+		left: 1300;
 		text-align: left;
 		font-size: 23;
 	}

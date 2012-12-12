@@ -104,6 +104,7 @@ function drawPlayerImg(alive, fired, index) {
 ////////////////////// END IMAGES CODE
 
 var collide_snd = new Audio("sound/collideWall.mp3");
+var louisSong = new Audio("sound/Louis Armstrong-Dinah.mp3");
 
 var filterStrength = 20,
     frameTime = 0, 
@@ -111,7 +112,7 @@ var filterStrength = 20,
 
 var general = {
     DEBUG: false,
-    HOST_URI: 'http://localhost:8080',
+    HOST_URI: 'http://128.237.181.170:8080',
     CONN_OPTIONS: {'transports':['websocket']},
     FRAME_INTERVAL: 16,
     WORLD_H: 2020,
@@ -131,8 +132,8 @@ var control = {
 
 var canvas = {
     obj: undefined,
-    width: 600,
-    height: 600,
+    width: 700,
+    height: 700,
     offset_x:0,
     offset_y:0
 };
@@ -197,7 +198,7 @@ function onKeyUp(evt) {
 }
 
 function onKeyPress(evt) {
-	if (evt.which == 32 && me.killer === true) { attemptKill(); }
+	if (evt.which == 32 && me.killer === true && me.poison) { attemptKill(); }
 	if (evt.which == 32) printC = true;
     if (control.typing) {
         if (evt.which == 13) sendchat();
@@ -228,13 +229,7 @@ function getMousePos(canvas, evt) {
 }
 
 function updateCursor() {
-	if (me.alive) {
-		var ydist = canvas.height-me.mousePos.y-me.y
-		var xdist = me.mousePos.x-me.x
-		var dist = Math.sqrt(Math.pow(ydist,2) + Math.pow(xdist,2));
-		me.theta = (Math.atan2(ydist, xdist));
-	}
-	
+	context.fillStyle = "#333333";
 	context.beginPath();
 	context.arc(me.mousePos.x,me.mousePos.y,2,0,2*Math.PI);
 	context.fill();
@@ -244,28 +239,31 @@ function updateCursor() {
 // Movement
 //////////////////////////////////////////////////////////
 function checkTask() {
-	if (printC) {
-		console.log("(" + me.task.x + ", " + me.task.y + "), (" + me.task.x + me.task.width +
-			", " + me.task.y + me.task.height + "). and ME: (" + me.world_x + ", " + me.world_y + ")");
-		printC = false;
-	}
 	if (me.freshKill) {
 		me.freshKill = false;
+		me.poison = false;
 		return true;
 	}
-	else if (me.task) {
+	else if (me.task && gameStart && !me.fired) {
 		if (me.world_x > me.task.x && 
 			me.world_y > me.task.y &&
-			me.world_x < me.task.x + me.task.width &&
-			me.world_y < me.task.y + me.task.height) { 
+			me.world_x < me.task.x1 &&
+			me.world_y < me.task.y1) { 
 			
 			if (!me.killer) {
 				me.lastTaskTime = me.time;
 				me.task = undefined;
 			}
+			else me.poison = true;
 			return true;
 		}
-		else return false;
+		else {
+			var taskX = me.task.x + ((me.task.x1 - me.task.x) / 2);
+			var taskY = me.task.y + ((me.task.y1 - me.task.y) / 2);
+			$("#distance")[0].innerHTML = "Distance: " + Math.round(Math.sqrt(
+					Math.pow((me.world_x - taskX),2) + Math.pow((me.world_y - taskY),2))) + "";
+			return false;
+		}
 	}
 }
 
@@ -273,25 +271,31 @@ function move()
 {
 	var leftright = false;
 	var updown = false;
+	var xaxis = 0;
+	var yaxis = 0;
 	
 	// X MOVEMENT
     if (control.rightDown && !control.leftDown) {
 		physics.xvel = physics.speed;
 		leftright = true;
+		xaxis = 1;
 		}
     else if (control.leftDown && !control.rightDown) {
 		physics.xvel = - physics.speed;
 		leftright = true;
+		xaxis = -1;
 		}
 	else physics.xvel = 0;
 	
 	// Y MOVEMENT
     if (control.upDown && !control.downDown) {
 		physics.yvel = - physics.speed;
+		yaxis = -1;
 		updown = true;
 		}
     else if (control.downDown && ! control.upDown) {
 		physics.yvel = physics.speed;
+		yaxis = 1;
 		updown = true;
 		}
 	else physics.yvel = 0;
@@ -300,11 +304,19 @@ function move()
 	if (leftright && updown) {
 		physics.xvel *= (Math.sqrt(2) / 2);
 		physics.yvel *= (Math.sqrt(2) / 2);
-		}
+	}
+		
+	// ANGLEZ
+	if (xaxis === 1 && yaxis === 0 && me.alive) me.theta = 0;
+	else if (xaxis === 1 && yaxis === -1 && me.alive) me.theta = (Math.PI / 4);
+	else if (xaxis === 1 && yaxis === 1 && me.alive) me.theta = -(Math.PI / 4);
+	else if (xaxis === 0 && yaxis === -1 && me.alive) me.theta = (Math.PI / 2);
+	else if (xaxis === 0 && yaxis === 1 && me.alive) me.theta = -(Math.PI / 2);
+	else if (xaxis === -1 && yaxis === 0 && me.alive) me.theta = (Math.PI);
+	else if (xaxis === -1 && yaxis === -1 && me.alive) me.theta = (3 * Math.PI / 4);
+	else if (xaxis === -1 && yaxis === 1 && me.alive) me.theta = -(3 * Math.PI / 4);
 		
 	// MOVE PEEPS
-	var oldx = me.world_x;
-	var oldy = me.world_y;
 	if (me.alive) {
 		me.world_x += physics.xvel;
 		me.world_y += physics.yvel;
@@ -358,11 +370,13 @@ function othermove(data) {
     if (ids.indexOf(data.id) != -1) {
        users[data.id].world_x = data.x;
        users[data.id].world_y = data.y;
+	   users[data.id].theta = data.theta;
     } else {
         ids.push(data.id);
         users[data.id] = {
             world_x: data.x,
             world_y: data.y,
+			theta: data.theta,
             name: ''
         };
         updateStatus();
@@ -432,7 +446,7 @@ function otherdraw()
 		context.save();
 		context.translate(ux, uy);
 		context.rotate(-user.theta);
-		drawPlayerImg(user.alive, user.fired, user.imgIndex, -20, -20);
+		drawPlayerImg(user.alive, user.fired, user.imgIndex);
 		context.restore();
 
         context.font = "15px Orbitron"; 
@@ -506,8 +520,10 @@ function draw()
 		if (!me.killer) {
 			context.fillStyle = "gray";
 			context.strokeStyle = "#333333";
-			context.fillRect(5, 5, (canvas.width - 30) * ((200 - (me.time - me.lastTaskTime)) / 200), 10);
+			context.beginPath();
+			context.fillRect(5, 5, (canvas.width - 30) * ((600 - (me.time - me.lastTaskTime)) / 600), 10);
 			context.stroke();
+			context.closePath();
 		}
 	}
 
@@ -570,15 +586,15 @@ function onspeak(data) {
 
 function killerselect(data) {
 	gameStart = true;
+	louisSong.play();
 	if (data.killer == me.id) {
-		$("#gamestate")[0].innerHTML = "You are the killer";
 		$("#gamestate").show();
 		me.killer = true;
 		me.task.text = "Get poison";
 	}
 	else {
 		setInterval(function(){me.time += 1; 
-								if(me.time - me.lastTaskTime > 200 && me.alive) {
+								if(me.time - me.lastTaskTime > 600 && me.alive) {
 								socket.send(JSON.stringify({
 									action:'fire'
 								}))}}, 100);
@@ -604,6 +620,28 @@ function newTask(data) {
 function deadKiller(data) {
 	if (me.killer) console.log("I LOST MOTHA EFFA");
 	else console.log("WINNNNNNNNING");
+}
+
+function accuse(data) {
+	if (data.plaintiff == me.id) {
+		$("#vote")[0].innerHTML = "I have voted!\n\nYay democracy!";
+		return;
+	}
+	var accId = data.accused;
+	if (accId == me.id) {
+		$("#vote")[0].innerHTML = "I have been accused of murder!\n\nType \\vote yes or \\vote no to decide my fate";
+	}
+	else {
+		$("#vote")[0].innerHTML = users[accId].name + " has been accused of murder!\n\nType \\vote yes or \\vote no to decide his or her fate!";
+	}
+}
+
+function vote(data) {
+	$("#vote")[0].innerHTML = "I have voted!\n\nYay democracy!";
+}
+
+function endVote(data) {
+	$("#vote")[0].innerHTML = "No accusation in progress.";
 }
 
 function displaychat(speaker) {
@@ -699,7 +737,7 @@ function init() {
 
 	// Server interaction
     if (navigator.userAgent.toLowerCase().indexOf('chrome') > -1  ) {
-        $("#numusers")[0].innerHTML = "Connecting to server...";
+        $("#numusers")[0].innerHTML = "Connecting...";
         $("#numusers").show();
         if (socket) {
             general.retrying = setInterval("io.connect(general.HOST_URI, general.CONN_OPTIONS)",3000);
@@ -739,13 +777,19 @@ function init() {
 					deadKiller(data);
 				} else if (data.action == 'killerWin') {
 					if (me.killer) console.log("I WINNNNNNN OMG");
+				} else if (data.action == 'accuse') {
+					accuse(data);
+				} else if (data.action == 'vote') {
+					vote(data);
+				} else if (data.action == 'endVote') {
+					endVote(data);
 				}
             });
             socket.on('disconnect', function(){
                 ids = new Array();
                 users = new Array();
                 me.name = "";
-                $("#numusers")[0].innerHTML = "Disconnected!<br/>Trying to reconnect...";
+                $("#numusers")[0].innerHTML = "Disconnected!";
                 general.retrying = setInterval("io.connect(general.HOST_URI)", 3000);
             });
         }

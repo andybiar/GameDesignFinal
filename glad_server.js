@@ -45,7 +45,7 @@ var sids = new Array();
 var users = new Array();
 var kicked = new Array();
 var accepted_actions = ['move', 'speak', 'conn', 'info', 'thekick', 'theban', 'attemptKill', 'fire', 'taskComplete'];
-var names = ["Red", "Blue", "Prince", "Michael", "Elton", "Bobbito", "Lars", "Olaf"];
+var names = ["Erma", "Louis", "Molly", "Ella", "Pop", "Susan", "Jimbo", "Horace"];
 var voting = false;
 var yesCount = 0;
 var noCount = 0;
@@ -54,21 +54,22 @@ var killerID = -1;
 var livingPlayers = 0;
 var connected = 0;
 var killer = undefined;
+var voteChecker = undefined;
 
 var currentTime;
-var WORLD_W = 1540,
-    WORLD_Y = 2000,
+var WORLD_W = 1560,
+    WORLD_Y = 2020,
 	USER_CAP = 2,
 	USER_RADIUS = 30;
 
 server.listen(8080);
 
-function Task(text, x, y, width, height) {
+function Task(text, x, y, x1, y1) {
 	this.text = text;
 	this.x = x;
 	this.y = y;
-	this.width = width;
-	this.height = height;
+	this.x1 = x1;
+	this.y1 = y1;
 }
 
 tasks = new Array();
@@ -76,34 +77,34 @@ tasks[0] = new Task("Cook some Food", 210, 450, 310, 510);
 tasks[1] = new Task("Tidy the Broom Closet", 1450, 1325, 1520, 1395);
 tasks[2] = new Task("Clean the Bathroom", 225, 1085, 435, 1270);
 tasks[3] = new Task("Sweep the Lobby", 490, 1750, 1045, 1980);
-tasks[4] = new Task("Examine your Desk Papers", 1330, 280, 1475, 480);
+tasks[4] = new Task("Examine the Papers on the Study Desk", 1330, 280, 1475, 480);
 tasks[5] = new Task("Listen to the Radio", 1110, 1110, 1410, 1510);
-tasks[6] = new Task("Arrange the Bookshelf in the Study", 1080, 110, 1285, 160);
+tasks[6] = new Task("Arrange the Bookshelf in the Study", 1080, 110, 1285, 170);
 tasks[7] = new Task("Straighten the Hallway Rug", 710, 1085, 820, 1670);
 tasks[8] = new Task("Set the Grandfather Clock", 910, 1120, 990, 1160);
 tasks[9] = new Task("Set the Dining Room Table", 640, 430, 875, 890);
 tasks[10] = new Task("Wash the Dishes", 390, 440, 500, 560);
-tasks[11] = new Task("Clean the Lobby Windows", 550, 1960, 1000, 2000);
-tasks[12] = new Task("Change the Radio Station", 1285, 1430, 1400, 1495);
+tasks[11] = new Task("Clean the Lobby Windows", 540, 1940, 1000, 2000);
+tasks[12] = new Task("Change the Radio Station", 1275, 1390, 1400, 1495);
 tasks[13] = new Task("Admire Self in the Bathroom Mirror", 365, 1210, 455, 1285);
 tasks[14] = new Task("Organize the Pantry", 35, 40, 285, 325);
 tasks[15] = new Task("Straighten the Vase in the Dining Room", 925, 325, 985, 410);
 tasks[16] = new Task("Hide in the Closet", 1450, 1325, 1520, 1395);
-tasks[17] = new Task("Jump on your Parents' Bed", 230, 1430, 385, 1575);
-tasks[18] = new Task("Eat a Snack", 80, 40, 210, 85);
+tasks[17] = new Task("Jump on the Bed!", 230, 1430, 385, 1575);
+tasks[18] = new Task("Eat a Snack", 80, 40, 210, 100);
 tasks[19] = tasks[10];
 tasks[20] = new Task("Sweep the Bedroom", 1045, 690, 1500, 995);
 tasks[21] = tasks[5];
 tasks[22] = tasks[18];
 tasks[23] = new Task("Wash the Window in the Study", 1435, 270, 1500, 475);
 tasks[24] = new Task("Stock the Pantry", 35, 40, 290, 320);
-tasks[25] = new Task("Dust the Paintings", 515, 1715, 650, 1770);
+tasks[25] = new Task("Dust the Paintings", 515, 1715, 650, 1780);
 tasks[26] = new Task("Straighten the Rug", 1080, 205, 1280, 425);
 tasks[27] = new Task("Clean the Bathtub", 230, 1135, 310, 1255);
 tasks[28] = new Task("Carve the Turkey", 25, 460, 235, 655);
 tasks[29] = new Task("Arrange the Bookshelf", 935, 1435, 1150, 1525);
-tasks[30] = new Task("Tidy Up your Desk", 1315, 275, 1460, 480);
-tasks[31] = new Task("Open the Window", 1485, 800, 1515, 815);
+tasks[30] = new Task("Tidy Up the Desk", 1315, 275, 1460, 480);
+tasks[31] = new Task("Open the Window", 1465, 800, 1515, 815);
 
 io.configure('production', function(){
     io.set('log level', 1);
@@ -241,6 +242,8 @@ io.sockets.on('connection', function(socket){
 		}
 		
 		function endVoting() {
+			io.sockets.send(json({action:'endVote'}));
+			clearInterval(voteChecker);
 			if (yesCount > Math.ceil(livingPlayers / 2.0)) { 
 				livingPlayers--;
 				users[accused].alive = false;
@@ -264,6 +267,10 @@ io.sockets.on('connection', function(socket){
 			if (livingPlayers === 1 && users[killer].alive) io.sockets.send(json({action:'killerWin'}));
 		}
 		
+		function checkLivingVoters() {
+			if (yesCount + noCount >= livingPlayers) endVoting();
+		}
+		
 		function processCommand(request) {
 			if(!users[socket.id].alive) return;
 			var commandWords = request.chat.split(" ");
@@ -277,9 +284,11 @@ io.sockets.on('connection', function(socket){
 				if (nameMatch.val === true && voting === false) {
 					accused = nameMatch.id;
 					visibleChat(feedback, "I accuse " + commandWords[1] + "!");
+					io.sockets.send(json({action:'accuse', accused:accused, plaintiff:socket.id}));
 					yesCount++;
 					users[socket.id].voted = true;
 					voting = true;
+					voteChecker = setInterval(checkLivingVoters, 80);
 					return;
 				}
 				else {
@@ -300,11 +309,11 @@ io.sockets.on('connection', function(socket){
 				
 				if (commandWords[1].toLowerCase() == "yes") {
 					yesCount++;
+					socket.send(json({action:'vote'}));
 					users[socket.id].voted = true;
 					if (yesCount + noCount === livingPlayers) endVoting();
 				}
 				else if (commandWords[1].toLowerCase() == "no") {
-					console.log("No vote recorded. Like he voted no.");
 					noCount++;
 					users[socket.id].voted = true;
 					if (yesCount + noCount === livingPlayers) endVoting();
@@ -360,9 +369,9 @@ io.sockets.on('connection', function(socket){
 		}
 		
 		if (request.action == 'taskComplete') {
-			if (users[socket.id].taskIndex % 4 === 3) users[socket.id].taskIndex -= 3;
+			if (users[socket.id].taskIndex % 32 === 31) users[socket.id].taskIndex = 0;
 			else users[socket.id].taskIndex += 1;
-			socket.send(json({action:'newTask', task:tasks[users[socket.id].imgIndex * 4 + users[socket.id].taskIndex]}));
+			socket.send(json({action:'newTask', task:tasks[users[socket.id].taskIndex]}));
 		}
 
         if(request.action == 'info') {
