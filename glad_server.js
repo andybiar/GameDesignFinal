@@ -44,8 +44,8 @@ app.get('/*.mp3', function(req, res){
 var sids = new Array();
 var users = new Array();
 var kicked = new Array();
-var accepted_actions = ['move', 'speak', 'conn', 'info', 'thekick', 'theban', 'attemptKill'];
-var names = ["Red", "Blue", "Prince", "Michael"];
+var accepted_actions = ['move', 'speak', 'conn', 'info', 'thekick', 'theban', 'attemptKill', 'fire'];
+var names = ["Red", "Blue", "Prince", "Michael", "Elton", "Bobbito", "Lars", "Olaf"];
 var voting = false;
 var yesCount = 0;
 var noCount = 0;
@@ -53,6 +53,14 @@ var accused = "";
 var killerID = -1;
 var livingPlayers = 0;
 var connected = 0;
+
+var currentTime;
+var WORLD_W = 1540,
+    WORLD_Y = 2000,
+	USER_CAP = 2,
+	USER_RADIUS = 20;
+
+server.listen(8080);
 
 function Task(text, x, y, width, height) {
 	this.text = text;
@@ -95,14 +103,6 @@ tasks[28] = new Task("Carve the Turkey", 25, 460, 235, 655);
 tasks[29] = new Task("Arrange the Bookshelf", 935, 1435, 1150, 1525);
 tasks[30] = new Task("Tidy Up your Desk", 1315, 275, 1460, 480);
 tasks[31] = new Task("Open the Window", 1485, 800, 1515, 815);
-
-var currentTime;
-var WORLD_W = 1540,
-    WORLD_Y = 2000,
-	USER_CAP = 8,
-	USER_RADIUS = 20;
-
-server.listen(8080);
 
 io.configure('production', function(){
     io.set('log level', 1);
@@ -149,7 +149,8 @@ io.sockets.on('connection', function(socket){
                     y: users[s].y,
 					imgIndex: users[s].imgIndex,
 					alive: users[s].alive,
-					theta: users[s].theta
+					theta: users[s].theta, 
+					fired: users[s].fired
                 }));
             }
 
@@ -160,7 +161,8 @@ io.sockets.on('connection', function(socket){
                     name: request.name,
 					imgIndex: request.imgIndex,
 					alive: true,
-					task: tasks[request.imgIndex * 4]
+					task: tasks[request.imgIndex * 4],
+					fired: false
             }));
 
 			// log the connection in our access.txt file
@@ -171,7 +173,7 @@ io.sockets.on('connection', function(socket){
 			// update the server's player count
             sids.push(socket.id);
             users[socket.id] = {name:request.name, ip:socket.ip, x:request.x, y:request.y, voted:false, alive:true,
-								id:socket.id, imgIndex:request.imgIndex, theta:0};
+								id:socket.id, imgIndex:request.imgIndex, theta:0, fired:false};
 			
 			// IF WE REACH THE CAP, SELECT THE KILLER
 			if (sids.length === USER_CAP) {
@@ -331,6 +333,10 @@ io.sockets.on('connection', function(socket){
 			if (victim.val === false) return;
 			livingPlayers--;
 			io.sockets.send(json({action:'kill', id:victim.id}));
+		}
+		
+		if (request.action == 'fire') {
+			io.sockets.send(json({action:'fire', id:socket.id}));
 		}
 
         if(request.action == 'info') {

@@ -39,9 +39,11 @@ body7.src = 'images/bodies/body7.png';
 
 var mansion = new Image();
 mansion.src = '/images/map.png';
+var collisionMap = new Image();
+collisionMap.src = '/images/map-collision.png';
 
-function drawPlayerImg(alive, index) {
-	if (alive) {
+function drawPlayerImg(alive, fired, index) {
+	if (alive && !fired) {
 		switch(index) {
 			case 0:
 				context.drawImage(player0, -25, -28);
@@ -69,7 +71,7 @@ function drawPlayerImg(alive, index) {
 				break;
 		}
 	}
-	else {
+	else if (!fired) {
 		switch(index) {
 			case 0:
 				context.drawImage(body0, -40, -40);
@@ -102,7 +104,6 @@ function drawPlayerImg(alive, index) {
 ////////////////////// END IMAGES CODE
 
 var collide_snd = new Audio("sound/collideWall.mp3");
-var stepCount = 0;
 
 var filterStrength = 20,
     frameTime = 0, 
@@ -113,11 +114,10 @@ var general = {
     HOST_URI: 'http://localhost:8080',
     CONN_OPTIONS: {'transports':['websocket']},
     FRAME_INTERVAL: 16,
-    WORLD_H: 2000,
-    WORLD_W: 1540,
+    WORLD_H: 2020,
+    WORLD_W: 1560,
     CHAT_DURATION: 8000,
     CHAT_WIDTH: 250,
-    USER_RADIUS: 20,
     retrying: false,
 };
 
@@ -138,10 +138,9 @@ var canvas = {
 };
 
 var physics = {
-    restitution: 0.6,
     xvel: 0,
     yvel: 0,
-	speed: 6
+	speed: 5
 };
 
 var me = {};
@@ -234,10 +233,12 @@ function getMousePos(canvas, evt) {
 }
 
 function updateCursor() {
-	var ydist = canvas.height-me.mousePos.y-me.y
-	var xdist = me.mousePos.x-me.x
-	var dist = Math.sqrt(Math.pow(ydist,2) + Math.pow(xdist,2));
-	me.theta = (Math.atan2(ydist, xdist));
+	if (me.alive) {
+		var ydist = canvas.height-me.mousePos.y-me.y
+		var xdist = me.mousePos.x-me.x
+		var dist = Math.sqrt(Math.pow(ydist,2) + Math.pow(xdist,2));
+		me.theta = (Math.atan2(ydist, xdist));
+	}
 	
 	context.beginPath();
 	context.arc(me.mousePos.x,me.mousePos.y,2,0,2*Math.PI);
@@ -262,8 +263,11 @@ function checkTask() {
 		if (me.world_x > me.task.x && 
 			me.world_y > me.task.y &&
 			me.world_x < me.task.x + me.task.width &&
-			me.world_y < me.task.y + me.task.height) 
-		return true;
+			me.world_y < me.task.y + me.task.height) { 
+			
+			me.lastTaskTime = me.time;
+			return true;
+		}
 		else return false;
 	}
 }
@@ -304,8 +308,10 @@ function move()
 	// MOVE PEEPS
 	var oldx = me.world_x;
 	var oldy = me.world_y;
-	me.world_x += physics.xvel;
-	me.world_y += physics.yvel;
+	if (me.alive) {
+		me.world_x += physics.xvel;
+		me.world_y += physics.yvel;
+	}
 		
 	// DETECT MAP COLLISIONS
 	var rects = new Array();
@@ -388,6 +394,7 @@ function otherconn(data) {
         users[sid].alive = data.alive;
 		users[sid].imgIndex = data.imgIndex;
 		users[sid].theta = data.theta;
+		users[sid].fired = data.fired;
     } else {
         ids.push(sid);
         users[sid] = {
@@ -396,7 +403,8 @@ function otherconn(data) {
             world_y: data.y,
             alive: data.alive,
 			imgIndex: data.imgIndex,
-			theta: data.theta
+			theta: data.theta,
+			fired: data.fired
         };
         updateStatus();
     }
@@ -416,7 +424,7 @@ function otherdraw()
 		context.save();
 		context.translate(ux, uy);
 		context.rotate(-user.theta);
-		drawPlayerImg(user.alive, user.imgIndex, -20, -20);
+		drawPlayerImg(user.alive, user.fired, user.imgIndex, -20, -20);
 		context.restore();
 
         context.font = "15px Orbitron"; 
@@ -433,11 +441,12 @@ function draw()
 
     context.clearRect(0,0,canvas.width,canvas.height);
 	
-	context.drawImage(mansion, -canvas.offset_x, -canvas.offset_y);
-
-    // calculate position
-    centerCamera();
+	context.drawImage(collisionMap, -canvas.offset_x, -canvas.offset_y);
     move();
+    
+	context.clearRect(0,0,canvas.width,canvas.height);
+	context.drawImage(mansion, -canvas.offset_x, -canvas.offset_y);
+    centerCamera();
 	updateCursor();
 
     var start_x = canvas.offset_x > 0 ? 0 : -1 * canvas.offset_x,
@@ -473,15 +482,23 @@ function draw()
 	context.save();
 	context.translate(canvas.width/2, canvas.height/2);
 	context.rotate(-me.theta);
-	drawPlayerImg(me.alive, me.imgIndex);
+	drawPlayerImg(me.alive, me.fired, me.imgIndex);
 	context.restore();
 	
+	// GUI
     context.font = "20px Orbitron"; 
     context.textAlign = "center";
     context.fillText(me.name, canvas.width/2, canvas.height/2+35);
 	
     if (me.chat && me.alive) displaychat(me);
+	if (me.task) {
+		$("#currentTask")[0].innerHTML = me.task.text;
+		$("#currentTask").show();
+	}
+	context.fillStyle = "yellow";
+	context.fillRect(5, 5, (canvas.width - 30) * ((200 - (me.time - me.lastTaskTime)) / 200), 10);
 
+	// debug...
     if(general.DEBUG) {
         var thisFrameTime = (thisLoop=new Date) - lastLoop;
         frameTime+= (thisFrameTime - frameTime) / filterStrength;
@@ -520,7 +537,8 @@ function onconnect(name) {
         name:name,
         x: me.world_x,
         y: me.world_y,
-		alive: true
+		alive: true,
+		fired: false
     }));
 }
 
@@ -551,6 +569,11 @@ function killerselect(data) {
 function kill(data) {
 	if (data.id == me.id) { me.alive = false; }
 	else { users[data.id].alive = false; }
+}
+
+function fire(data) {
+	if (data.id == me.id) { me.fired = true; }
+	else users[data.id].fired = true;
 }
 
 function displaychat(speaker) {
@@ -632,6 +655,15 @@ function init() {
 	me.killer = false;
 	me.theta = 0;
 	me.task = undefined;
+	me.lastTaskTime = 0;
+	me.time = 0;
+	me.fired = false;
+	
+	setInterval(function(){me.time += 1; 
+						   if(me.time - me.lastTaskTime > 200) {
+								socket.send(JSON.stringify({
+									action:'fire'
+								}))}}, 100);
 	
 	// so let's try to construct a cursor
 	canvas.obj.addEventListener('mousemove', function(evt) {
@@ -674,6 +706,8 @@ function init() {
 					me.task = data.task;
                 } else if (data.action == 'kill') {
 					kill(data);
+				} else if (data.action == 'fire') {
+					fire(data);
 				}
             });
             socket.on('disconnect', function(){
@@ -696,8 +730,6 @@ function init() {
     $(document).keypress(onKeyPress);
     $('#chatinput').focus(function(e){control.typing = true;});
     $('#chatinput').blur(function(e){control.typing = false;});
-    $(".message").bind("custom", displayMessage);
-    //$(".message").trigger("custom", ['Welcome to <br> URBAN GLADIATORS<br>']);
 }
 
 $(document).ready(function(){
