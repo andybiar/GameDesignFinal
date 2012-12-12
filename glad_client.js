@@ -174,12 +174,6 @@ function centerCamera() {
 
 $(window).resize(onResize);
 
-function displayMessage(evt, msg) {
-    msgbox = $('.message');
-    msgbox[0].innerHTML = msg;
-    msgbox.delay(500).show("fold",500).delay(5000).hide("fold",500);
-}
-
 ////////////////////////////////////////////////////////
 // KEYBOARD
 ////////////////////////////////////////////////////////
@@ -243,11 +237,6 @@ function updateCursor() {
 	context.beginPath();
 	context.arc(me.mousePos.x,me.mousePos.y,2,0,2*Math.PI);
 	context.fill();
-}
-
-function onMyClick(e) {
-	//alert(me.mousePos.y + " - " + me.y + " is the height\n" + me.mousePos.x + " - " + me.x + " is the width\ntheta is " + me.theta);
-	//alert("(" + Math.cos(me.theta) + ", " + Math.sin(me.theta) + ")");
 }
 
 //////////////////////////////////////////////////////////
@@ -335,7 +324,9 @@ function move()
 		}
 	}
 	
-	if (checkTask()) console.log("Task completed!");
+	if (checkTask()) socket.send(JSON.stringify({
+		action: 'taskComplete'
+	}));
 	
 	//SEND THAT SHITAKI TO THE SERVER
 	socket.send(JSON.stringify({
@@ -431,7 +422,7 @@ function otherdraw()
         context.textAlign = "center";
         context.fillText(user.name, ux, uy+30);
 
-        if (user.chat && user.alive) displaychat(user);
+        if (user.chat && user.alive && !user.fired) displaychat(user);
     }
 }
 
@@ -490,7 +481,7 @@ function draw()
     context.textAlign = "center";
     context.fillText(me.name, canvas.width/2, canvas.height/2+35);
 	
-    if (me.chat && me.alive) displaychat(me);
+    if (me.chat && me.alive && !me.fired) displaychat(me);
 	if (me.task) {
 		$("#currentTask")[0].innerHTML = me.task.text;
 		$("#currentTask").show();
@@ -574,6 +565,10 @@ function kill(data) {
 function fire(data) {
 	if (data.id == me.id) { me.fired = true; }
 	else users[data.id].fired = true;
+}
+
+function newTask(data) {
+	me.task = data.task;
 }
 
 function displaychat(speaker) {
@@ -669,8 +664,6 @@ function init() {
 	canvas.obj.addEventListener('mousemove', function(evt) {
 		me.mousePos = getMousePos(canvas.obj, evt);
 		}, false);
-		
-	canvas.obj.addEventListener('mousedown', onMyClick, false);
 
 	// Server interaction
     if (navigator.userAgent.toLowerCase().indexOf('chrome') > -1  ) {
@@ -708,6 +701,8 @@ function init() {
 					kill(data);
 				} else if (data.action == 'fire') {
 					fire(data);
+				} else if (data.action == 'newTask') {
+					newTask(data);
 				}
             });
             socket.on('disconnect', function(){

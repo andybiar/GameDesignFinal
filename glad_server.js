@@ -44,7 +44,7 @@ app.get('/*.mp3', function(req, res){
 var sids = new Array();
 var users = new Array();
 var kicked = new Array();
-var accepted_actions = ['move', 'speak', 'conn', 'info', 'thekick', 'theban', 'attemptKill', 'fire'];
+var accepted_actions = ['move', 'speak', 'conn', 'info', 'thekick', 'theban', 'attemptKill', 'fire', 'taskComplete'];
 var names = ["Red", "Blue", "Prince", "Michael", "Elton", "Bobbito", "Lars", "Olaf"];
 var voting = false;
 var yesCount = 0;
@@ -173,7 +173,7 @@ io.sockets.on('connection', function(socket){
 			// update the server's player count
             sids.push(socket.id);
             users[socket.id] = {name:request.name, ip:socket.ip, x:request.x, y:request.y, voted:false, alive:true,
-								id:socket.id, imgIndex:request.imgIndex, theta:0, fired:false};
+								id:socket.id, imgIndex:request.imgIndex, theta:0, fired:false, taskIndex:0};
 			
 			// IF WE REACH THE CAP, SELECT THE KILLER
 			if (sids.length === USER_CAP) {
@@ -337,6 +337,12 @@ io.sockets.on('connection', function(socket){
 		
 		if (request.action == 'fire') {
 			io.sockets.send(json({action:'fire', id:socket.id}));
+		}
+		
+		if (request.action == 'taskComplete') {
+			if (users[socket.id].taskIndex % 4 === 3) users[socket.id].taskIndex -= 3;
+			else users[socket.id].taskIndex += 1;
+			socket.send(json({action:'newTask', task:tasks[users[socket.id].imgIndex * 4 + users[socket.id].taskIndex]}));
 		}
 
         if(request.action == 'info') {
