@@ -66,11 +66,19 @@
 		top: 15;
 		left: 250;
 		}
-	#gamestate {
+	#state {
+		position:absolute;
+		top: 25;
+		left: 1300;
+	}
+	#vote {
 		font-family: 'Helvetica', sans-serif;
+		width: 300;
 		position:absolute;
 		top: 50;
-		left: 25;
+		left: 650;
+		text-align: left;
+		font-size: 23;
 	}
 		canvas {
 		float: center;
