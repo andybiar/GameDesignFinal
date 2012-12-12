@@ -149,6 +149,7 @@ var users = new Array();
 var context;
 var img = new Image();
 var printC = false;
+var gameStart = false;
 
 function onResize() {
     me.x = canvas.width/2;
@@ -248,13 +249,20 @@ function checkTask() {
 			", " + me.task.y + me.task.height + "). and ME: (" + me.world_x + ", " + me.world_y + ")");
 		printC = false;
 	}
-	if (me.task) {
+	if (me.freshKill) {
+		me.freshKill = false;
+		return true;
+	}
+	else if (me.task) {
 		if (me.world_x > me.task.x && 
 			me.world_y > me.task.y &&
 			me.world_x < me.task.x + me.task.width &&
 			me.world_y < me.task.y + me.task.height) { 
 			
-			me.lastTaskTime = me.time;
+			if (!me.killer) {
+				me.lastTaskTime = me.time;
+				me.task = undefined;
+			}
 			return true;
 		}
 		else return false;
@@ -324,9 +332,18 @@ function move()
 		}
 	}
 	
-	if (checkTask()) socket.send(JSON.stringify({
-		action: 'taskComplete'
-	}));
+	if (checkTask()) {
+		if (!me.killer || me.killTask) {
+			socket.send(JSON.stringify({
+				action: 'taskComplete'}));
+		}
+		else {
+			me.killTask = true;
+			me.task.text = "KILL KILL KILL";
+			me.task.x = undefined;
+			me.task.y = undefined;
+		}
+	}
 	
 	//SEND THAT SHITAKI TO THE SERVER
 	socket.send(JSON.stringify({
@@ -482,12 +499,17 @@ function draw()
     context.fillText(me.name, canvas.width/2, canvas.height/2+35);
 	
     if (me.chat && me.alive && !me.fired) displaychat(me);
-	if (me.task) {
+	if (me.task && gameStart) {
 		$("#currentTask")[0].innerHTML = me.task.text;
 		$("#currentTask").show();
+		
+		if (!me.killer) {
+			context.fillStyle = "gray";
+			context.strokeStyle = "#333333";
+			context.fillRect(5, 5, (canvas.width - 30) * ((200 - (me.time - me.lastTaskTime)) / 200), 10);
+			context.stroke();
+		}
 	}
-	context.fillStyle = "yellow";
-	context.fillRect(5, 5, (canvas.width - 30) * ((200 - (me.time - me.lastTaskTime)) / 200), 10);
 
 	// debug...
     if(general.DEBUG) {
@@ -501,7 +523,7 @@ function draw()
 // Networking
 ///////////////////////////////////////////////////
 function updateStatus(){
-    $('#numusers')[0].innerHTML = 'Users online: ' + (ids.length + 1);
+    $('#numusers')[0].innerHTML = (ids.length + 1);
 }
 
 function input(promptstring, func)
@@ -547,17 +569,24 @@ function onspeak(data) {
 }
 
 function killerselect(data) {
+	gameStart = true;
 	if (data.killer == me.id) {
 		$("#gamestate")[0].innerHTML = "You are the killer";
 		$("#gamestate").show();
 		me.killer = true;
+		me.task.text = "Get poison";
 	}
 	else {
-		console.log(me.name + ", not the killer");
+		setInterval(function(){me.time += 1; 
+								if(me.time - me.lastTaskTime > 200 && me.alive) {
+								socket.send(JSON.stringify({
+									action:'fire'
+								}))}}, 100);
 	}
 }
 
 function kill(data) {
+	if (me.killer) me.freshKill = true;
 	if (data.id == me.id) { me.alive = false; }
 	else { users[data.id].alive = false; }
 }
@@ -569,6 +598,12 @@ function fire(data) {
 
 function newTask(data) {
 	me.task = data.task;
+	if (me.killer) me.task.text = "Get Poison";
+}
+
+function deadKiller(data) {
+	if (me.killer) console.log("I LOST MOTHA EFFA");
+	else console.log("WINNNNNNNNING");
 }
 
 function displaychat(speaker) {
@@ -653,12 +688,9 @@ function init() {
 	me.lastTaskTime = 0;
 	me.time = 0;
 	me.fired = false;
-	
-	setInterval(function(){me.time += 1; 
-						   if(me.time - me.lastTaskTime > 200) {
-								socket.send(JSON.stringify({
-									action:'fire'
-								}))}}, 100);
+	me.poison = false;
+	me.killTask = false;
+	me.freshKill = false;
 	
 	// so let's try to construct a cursor
 	canvas.obj.addEventListener('mousemove', function(evt) {
@@ -703,6 +735,10 @@ function init() {
 					fire(data);
 				} else if (data.action == 'newTask') {
 					newTask(data);
+				} else if (data.action == 'killerDead') {
+					deadKiller(data);
+				} else if (data.action == 'killerWin') {
+					if (me.killer) console.log("I WINNNNNNN OMG");
 				}
             });
             socket.on('disconnect', function(){

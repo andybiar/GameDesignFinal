@@ -53,12 +53,13 @@ var accused = "";
 var killerID = -1;
 var livingPlayers = 0;
 var connected = 0;
+var killer = undefined;
 
 var currentTime;
 var WORLD_W = 1540,
     WORLD_Y = 2000,
 	USER_CAP = 2,
-	USER_RADIUS = 20;
+	USER_RADIUS = 30;
 
 server.listen(8080);
 
@@ -179,6 +180,7 @@ io.sockets.on('connection', function(socket){
 			if (sids.length === USER_CAP) {
 				livingPlayers = USER_CAP;
 				killerID = sids[Math.floor(Math.random() * USER_CAP)];
+				killer = killerID;
 				io.sockets.send(json({
 					action:'killer_select',
 					killer: killerID
@@ -239,16 +241,27 @@ io.sockets.on('connection', function(socket){
 		}
 		
 		function endVoting() {
-			if (yesCount > noCount) { 
+			if (yesCount > Math.ceil(livingPlayers / 2.0)) { 
 				livingPlayers--;
-				io.sockets.send(json({action:'kill', id:accused})); 
+				users[accused].alive = false;
+				io.sockets.send(json({action:'kill', id:accused}));
+				checkKillerDeath(accused);
+				checkKillerWin();
 			}
-			else { console.log("NO WINS"); }
+			
 			doForAllUsers((function (user) { user.voted = false; }));
 			yesCount = 0;
 			noCount = 0;
 			voting = false;
 			accused = "";
+		}
+		
+		function checkKillerDeath(id) {
+			if (id == killer) io.sockets.send(json({action:'killerDead'}));
+		}
+		
+		function checkKillerWin() {
+			if (livingPlayers === 1 && users[killer].alive) io.sockets.send(json({action:'killerWin'}));
 		}
 		
 		function processCommand(request) {
@@ -286,7 +299,6 @@ io.sockets.on('connection', function(socket){
 				if (users[socket.id].voted === true) { soloChat(feedback, "You already voted"); return; }
 				
 				if (commandWords[1].toLowerCase() == "yes") {
-					console.log("Yes vote recorded");
 					yesCount++;
 					users[socket.id].voted = true;
 					if (yesCount + noCount === livingPlayers) endVoting();
@@ -331,12 +343,20 @@ io.sockets.on('connection', function(socket){
 														 user.y > (ky - USER_RADIUS) &&
 														 user.y < (ky + USER_RADIUS))}));
 			if (victim.val === false) return;
-			livingPlayers--;
-			io.sockets.send(json({action:'kill', id:victim.id}));
+			setTimeout(function() {
+				livingPlayers--;
+				users[victim.id].alive = false;
+				io.sockets.send(json({action:'kill', id:victim.id}));
+				checkKillerDeath(victim.id);
+				checkKillerWin();
+			}, 2000);
 		}
 		
 		if (request.action == 'fire') {
 			io.sockets.send(json({action:'fire', id:socket.id}));
+			users[socket.id].alive = false;
+			livingPlayers--;
+			checkKillerWin();
 		}
 		
 		if (request.action == 'taskComplete') {
